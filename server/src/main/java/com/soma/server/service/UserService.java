@@ -1,21 +1,21 @@
 package com.soma.server.service;
 
-import com.soma.server.entity.UserDetails;
+import com.soma.server.entity.SpotifyUserDetails;
 import org.springframework.stereotype.Service;
 import se.michaelthelin.spotify.model_objects.specification.User;
 import se.michaelthelin.spotify.model_objects.specification.Image;
 
 @Service
 public class UserService {
-    private UserDetails userDetails;
+    private SpotifyUserDetails userDetails;
 
-    public UserDetails getCurrentUser() {
+    public SpotifyUserDetails getCurrentUser() {
         return userDetails;
     }
 
     public void updateUser(User user, String accessToken, String refreshToken) {
         if (userDetails == null) {
-            userDetails = new UserDetails();
+            userDetails = new SpotifyUserDetails();
             userDetails.setRefId(user.getId());
         }
 

@@ -10,7 +10,7 @@ import java.io.Serializable;
 @Getter
 @Setter
 @Data
-public class UserDetails implements Serializable {
+public class SpotifyUserDetails implements Serializable {
     @Serial
     private static final long serialVersionUID = 3937414011943770889L;
 

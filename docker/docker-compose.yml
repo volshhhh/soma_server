@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: soma_postgres
+    environment:
+      POSTGRES_DB: soma_db
+      POSTGRES_USER: soma_user
+      POSTGRES_PASSWORD: soma_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+    networks:
+      - soma_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soma_user -d soma_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: soma_server
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - soma_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  soma_network:
+    driver: bridge

@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.soma.server.config.SpotifyConfig;
-import com.soma.server.entity.UserDetails;
+import com.soma.server.entity.SpotifyUserDetails;
 import com.soma.server.service.UserService;
 
 import se.michaelthelin.spotify.model_objects.specification.Paging;
@@ -76,12 +76,7 @@ public class SpotifyController {
         this.userService = userService;
     }
 
-    @GetMapping("/welcome")
-    public String welcome() {
-        return "Welcome to Spotify API";
-    }
-
-    @GetMapping("/login")
+    @GetMapping("/login-with-spotify")
     public String login() {
         SpotifyApi spotifyApi = spotifyConfig.getSpotifyObject();
 
@@ -126,28 +121,12 @@ public class SpotifyController {
             userService.updateUser(user, credentials.getAccessToken(), credentials.getRefreshToken());
 
         // Redirect to frontend with user ID
-        response.sendRedirect("http://localhost:5173/home?id=" + user.getId());
+        response.sendRedirect("http://localhost:8080/soma/api/home?id=" + user.getId());
 
         } catch (Exception e) {
             logger.error("Error in callback while processing code {}: {}", userCode, e.getMessage(), e);
         // Redirect to frontend error page
             response.sendRedirect("http://localhost:5173/error");
-        }
-    }
-
-    @GetMapping("user-avatar")
-    public ResponseEntity<String> getUserAvatar(@RequestParam("id") String userId) {
-        try {
-            UserDetails userDetails = userService.getCurrentUser();
-            if (userDetails == null || !userId.equals(userDetails.getRefId())) {
-                return ResponseEntity.badRequest().body("User not found or unauthorized");
-            }
-
-            String avatarUrl = userDetails.getAvatarUrl();
-            return ResponseEntity.ok(avatarUrl != null ? avatarUrl : "");
-        
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }
 
@@ -161,5 +140,4 @@ public class SpotifyController {
 
         return null;
     }
-
 }
