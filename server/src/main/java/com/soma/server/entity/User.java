@@ -6,9 +6,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 @Setter
-@NoArgsConstructor // required by JPA
+@NoArgsConstructor
 @Entity
 @Table(name = "users", uniqueConstraints = {
         @UniqueConstraint(name = "uk_user_username", columnNames = "username"),
@@ -30,12 +33,9 @@ public class User {
     @Column(nullable = false, length = 100)
     private String password;
 
-    // Not persisted for now; hook for future integrations
-    @Transient
-    private SpotifyUserDetails userSpotifyDetails;
-
-    @Transient
-    private YandexUserDetails userYandexDetails;
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<UserDetailsInterface> allUserDetails = new ArrayList<>();
 
     private User(Builder builder) {
         this.username = builder.username;
@@ -43,12 +43,24 @@ public class User {
         this.email = builder.email;
     }
 
-    public void addSpotify(SpotifyUserDetails spotifyUserDetails) {
-        userSpotifyDetails = spotifyUserDetails;
+    public void addSpotifyDetails(SpotifyUserDetails spotifyDetails) {
+        spotifyDetails.setUser(this);
+        this.allUserDetails.add(spotifyDetails);
     }
 
-    public void addYandexMusic(YandexUserDetails yandexUserDetails) {
-        userYandexDetails = yandexUserDetails;
+    public void addYandexDetails(YandexUserDetails yandexDetails) {
+        yandexDetails.setUser(this);
+        this.allUserDetails.add(yandexDetails);
+    }
+
+    public void removeSpotifyDetails(SpotifyUserDetails spotifyDetails) {
+        this.allUserDetails.remove(spotifyDetails);
+        spotifyDetails.setUser(null);
+    }
+
+    public void removeYandexDetails(YandexUserDetails yandexDetails) {
+        this.allUserDetails.remove(yandexDetails);
+        yandexDetails.setUser(null);
     }
 
     public static Builder builder() {

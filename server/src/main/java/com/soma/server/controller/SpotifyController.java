@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 
 import org.slf4j.Logger;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.soma.server.config.SpotifyConfig;
 import com.soma.server.entity.SpotifyUserDetails;
 import com.soma.server.service.UserService;
+import com.soma.server.parser.YmParser;
 
 import se.michaelthelin.spotify.model_objects.specification.Paging;
 import se.michaelthelin.spotify.model_objects.specification.Playlist;
@@ -66,9 +68,12 @@ public class SpotifyController {
 
     private String name = "";
 
+    private final YmParser ymParser;
+
     @Autowired
-    public SpotifyController(SpotifyConfig spotifyConfig) {
+    public SpotifyController(SpotifyConfig spotifyConfig, YmParser ymParser) {
         this.spotifyConfig = spotifyConfig;
+        this.ymParser = ymParser;
     }
 
     @Autowired
@@ -118,10 +123,10 @@ public class SpotifyController {
 
             name = user.getDisplayName();
 
-            userService.updateUser(user, credentials.getAccessToken(), credentials.getRefreshToken());
+            userService.saveOrUpdateUser(user, credentials.getAccessToken(), credentials.getRefreshToken());
 
         // Redirect to frontend with user ID
-        response.sendRedirect("http://localhost:8080/soma/api/home?id=" + user.getId());
+        response.sendRedirect("http://localhost:8081/soma/api/home?id=" + user.getId());
 
         } catch (Exception e) {
             logger.error("Error in callback while processing code {}: {}", userCode, e.getMessage(), e);
@@ -139,5 +144,164 @@ public class SpotifyController {
         }
 
         return null;
+    }
+
+    @GetMapping("user-avatar")
+    public ResponseEntity<String> getUserAvatar(@RequestParam("id") String userId) {
+        try {
+            Optional<SpotifyUserDetails> userDetailsOptional = userService.getSpotifyUserDetails(userId);
+            if (userDetailsOptional.isEmpty()) {
+                return ResponseEntity.badRequest().body("User not found or unauthorized");
+            }
+
+            String avatarUrl = userDetailsOptional.get().getAvatarUrl();
+            return ResponseEntity.ok(avatarUrl != null ? avatarUrl : "");
+        
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("add-playlist")
+    public String addPlaylist(@RequestParam("playlistName") String playlistName,
+            @RequestParam("playlistLink") String playlistLink, @RequestParam("userId") String userId) {
+        
+        Optional<SpotifyUserDetails> userDetailsOptional = userService.getSpotifyUserDetails(userId);
+        if (userDetailsOptional.isEmpty()) {
+            return "User not found";
+        }
+        SpotifyUserDetails userDetails = userDetailsOptional.get();
+        String accessToken = userDetails.getAccessToken();
+
+        Map<String, List<String>> songs = ymParser.parsing(playlistLink);
+
+        if (songs.isEmpty()) {
+            return "No songs available";
+        }
+
+        List<String> urisList = getTracksURI(songs, accessToken);
+
+        String[] uris = urisList.toArray(new String[0]);
+
+        SpotifyApi spotifyApi = new SpotifyApi.Builder()
+                .setAccessToken(accessToken)
+                .build();
+
+        CreatePlaylistRequest createPlaylistRequest = spotifyApi.createPlaylist(userDetails.getSpotifyUserId(), playlistName)
+                .build();
+
+        String playlistId = "";
+        try {
+            final Playlist playlist = createPlaylistRequest.execute();
+            playlistId = playlist.getId();
+        } catch (IOException | SpotifyWebApiException | ParseException e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+
+        if (playlistId.isEmpty()) {
+            return "Error creating playlist";
+        }
+
+        addingItemsToPLayList(uris, spotifyApi, playlistId);
+        return "Playlist created successfully";
+    }
+
+    private List<String> getTracksURI(Map<String, List<String>> songs, String accessToken) {
+        List<String> uris = new ArrayList<>();
+
+        SpotifyApi spotifyApi = new SpotifyApi.Builder()
+                .setAccessToken(accessToken)
+                .build();
+
+        for (Map.Entry<String, List<String>> entry : songs.entrySet()) {
+            String artist = entry.getKey();
+            List<String> songList = entry.getValue();
+
+            for (String song : songList) {
+                String q = artist + " " + song;
+                String uri;
+                Track track = null;
+
+                SearchTracksRequest searchTracksRequest = spotifyApi.searchTracks(q)
+                        .limit(1)
+                        .build();
+
+                try {
+                    final Paging<Track> trackPaging = searchTracksRequest.execute();
+                    if (trackPaging.getItems().length > 0) {
+                        track = trackPaging.getItems()[0];
+                    }
+                } catch (IOException | SpotifyWebApiException | ParseException e) {
+                    System.out.println("Error: " + e.getMessage());
+                }
+
+                if (track != null) {
+                    uri = track.getUri();
+                    uris.add(uri);
+                }
+            }
+        }
+
+        return uris;
+    }
+
+    @PostMapping("add-to-existing")
+    public void addToExisting(@RequestParam("yandexLink") String yandexPlaylistLink,
+                              @RequestParam("spotifyLink") String spotifyPlaylistLink,
+                              @RequestParam("userId") String userId) {
+        
+        Optional<SpotifyUserDetails> userDetailsOptional = userService.getSpotifyUserDetails(userId);
+        if (userDetailsOptional.isEmpty()) {
+            System.out.println("User not found");
+            return;
+        }
+        String accessToken = userDetailsOptional.get().getAccessToken();
+
+        Map<String, List<String>> songs = ymParser.parsing(yandexPlaylistLink);
+
+        if (songs.isEmpty()) {
+            System.out.println("No songs available");
+            return;
+        }
+
+        List<String> urisList = getTracksURI(songs, accessToken);
+
+        String[] uris = urisList.toArray(new String[0]);
+
+        SpotifyApi spotifyApi = new SpotifyApi.Builder()
+                .setAccessToken(accessToken)
+                .build();
+
+        String playlistId = extractPlaylistId(spotifyPlaylistLink);
+
+        if (playlistId.isEmpty()) {
+            return;
+        }
+
+        addingItemsToPLayList(uris, spotifyApi, playlistId);
+    }
+
+    private void addingItemsToPLayList(String[] uris, SpotifyApi spotifyApi, String playlistId) {
+        AddItemsToPlaylistRequest addItemsToPlaylistRequest = spotifyApi
+                .addItemsToPlaylist(playlistId, uris)
+                .build();
+        try {
+            final SnapshotResult snapshotResult = addItemsToPlaylistRequest.execute();
+            System.out.println("Snapshot ID: " + snapshotResult.getSnapshotId());
+        } catch (IOException | SpotifyWebApiException | ParseException e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+    }
+
+    private String extractPlaylistId(String url) {
+        String prefix = "/playlist/";
+        int startIndex = url.indexOf(prefix) + prefix.length();
+        int endIndex = url.indexOf("?", startIndex);
+
+        if (endIndex == -1) {
+            endIndex = url.length();
+        }
+
+        return url.substring(startIndex, endIndex);
     }
 }

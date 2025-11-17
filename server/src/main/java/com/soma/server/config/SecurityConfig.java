@@ -22,7 +22,13 @@ public class SecurityConfig {
             //.cors().and()
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/**").permitAll()
+                .requestMatchers(
+                        "/login",
+                        "/soma/api/register",
+                        "/soma/api/login-with-spotify",
+                        "/soma/api/callback",
+                        "/soma/api/welcome"
+                ).permitAll()
                 .anyRequest().authenticated()
             )
             .formLogin(formLogin -> formLogin
