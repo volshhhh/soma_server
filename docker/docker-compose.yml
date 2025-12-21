@@ -28,6 +28,7 @@ services:
     container_name: soma_server
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-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}
     ports:
       - "8080:8080"
     depends_on:
@@ -36,6 +37,21 @@ services:
     networks:
       - soma_network
     restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../../soma_client/frontend
+      dockerfile: Dockerfile
+    container_name: soma_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - app
+    networks:
+      - soma_network
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://soma_server:8080
 
 volumes:
   postgres_data:
