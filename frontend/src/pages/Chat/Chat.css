@@ -1,0 +1,113 @@
+.chat-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--dark-bg);
+  overflow: hidden;
+}
+
+.connecting-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: var(--text-secondary);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--dark-surface-lighter);
+  border-top-color: var(--primary-green);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.chat-layout {
+  flex: 1;
+  display: flex;
+  max-height: calc(100vh - 120px);
+  overflow: hidden;
+}
+
+.chat-sidebar {
+  width: 260px;
+  background-color: var(--dark-surface);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background-color: var(--dark-surface);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.room-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.room-icon {
+  font-size: 1.5rem;
+}
+
+.room-info h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.connected {
+  background-color: var(--primary-green);
+  box-shadow: 0 0 6px var(--primary-green);
+}
+
+.status-dot.disconnected {
+  background-color: var(--error-red);
+}
+
+@media (max-width: 768px) {
+  .chat-sidebar {
+    display: none;
+  }
+
+  .chat-layout {
+    max-height: calc(100vh - 100px);
+  }
+}

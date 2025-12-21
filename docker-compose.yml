@@ -1,0 +1,104 @@
+version: '3.8'
+
+# Docker Compose конфигурация для Soma Chat
+# 
+# Запуск: docker-compose up -d
+# Остановка: docker-compose down
+# С удалением данных: docker-compose down -v
+
+services:
+  # =============================================================================
+  # PostgreSQL база данных
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: soma_chat_db
+    restart: unless-stopped
+    
+    environment:
+      POSTGRES_DB: soma_chat
+      POSTGRES_USER: soma_user
+      POSTGRES_PASSWORD: soma_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    
+    ports:
+      - "5432:5432"
+    
+    volumes:
+      # Персистентное хранение данных
+      - postgres_data:/var/lib/postgresql/data
+      # Инициализационные скрипты (опционально)
+      - ./docker/init-db:/docker-entrypoint-initdb.d
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soma_user -d soma_chat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    networks:
+      - soma_network
+
+  # =============================================================================
+  # pgAdmin - веб-интерфейс для управления PostgreSQL (опционально)
+  # Доступ: http://localhost:5050
+  # =============================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: soma_chat_pgadmin
+    restart: unless-stopped
+    
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@soma.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    
+    ports:
+      - "5050:80"
+    
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    networks:
+      - soma_network
+
+  # =============================================================================
+  # Soma Chat Application (опционально - можно запускать локально)
+  # Раскомментируйте, если хотите запускать приложение в Docker
+  # =============================================================================
+  # app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: soma_chat_app
+  #   restart: unless-stopped
+  #   
+  #   environment:
+  #     SPRING_PROFILES_ACTIVE: prod
+  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/soma_chat
+  #     DB_USERNAME: soma_user
+  #     DB_PASSWORD: soma_password
+  #   
+  #   ports:
+  #     - "8080:8080"
+  #   
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   
+  #   networks:
+  #     - soma_network
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  soma_network:
+    driver: bridge
