@@ -6,6 +6,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    allowedHosts: [
+      'snaky-paxton-overacutely.ngrok-free.dev',
+      // Можно добавить другие поддомены ngrok
+      '.ngrok-free.dev', // Все поддомены ngrok
+    ],
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
