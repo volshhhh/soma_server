@@ -39,6 +39,11 @@ public class UsersController {
         return user.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/all")
+    public ResponseEntity<java.util.List<User>> getAll() {
+        return ResponseEntity.ok(userRepository.findAll());
+    }
+
     @GetMapping("/by-id/{id}")
     public ResponseEntity<User> byId(@PathVariable Long id) {
         return userRepository.findById(id)
