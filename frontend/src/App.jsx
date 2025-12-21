@@ -41,16 +41,11 @@ function AppContent() {
               <Chat />
             </ProtectedRoute>
           } />
-          <Route path="/chat/:roomId" element={
-            <ProtectedRoute>
-              <Chat />
-            </ProtectedRoute>
-          } />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       <footer className="footer">
-        <p>&copy; 2024 Soma Chat App. All rights reserved.</p>
+        <p>&copy; 2025 Soma Chat App. All rights reserved.</p>
       </footer>
     </div>
   )

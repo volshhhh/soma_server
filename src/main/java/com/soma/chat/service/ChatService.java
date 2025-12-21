@@ -201,4 +201,98 @@ public class ChatService {
     public long getMessageCount(String roomId) {
         return messageRepository.countByRoomId(roomId);
     }
+
+    /**
+     * Создание и сохранение приватного сообщения.
+     * 
+     * @param request данные сообщения от клиента
+     * @param senderUsername логин отправителя (из Principal)
+     * @param recipientUsername логин получателя
+     * @return сохраненное сообщение в виде DTO
+     */
+    @Transactional
+    public ChatMessageResponse createPrivateMessage(
+            ChatMessageRequest request, 
+            String senderUsername, 
+            String recipientUsername) {
+        
+        log.debug("Создание приватного сообщения от {} к {}", senderUsername, recipientUsername);
+
+        User sender = userService.getOrCreateUser(senderUsername);
+        User recipient = userService.findByUsername(recipientUsername)
+            .orElseThrow(() -> new IllegalArgumentException("Recipient not found: " + recipientUsername));
+
+        ChatMessage.MessageType messageType = ChatMessage.MessageType.TEXT;
+        if (request.getType() != null) {
+            try {
+                messageType = ChatMessage.MessageType.valueOf(request.getType().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                log.warn("Неизвестный тип сообщения: {}, используем TEXT", request.getType());
+            }
+        }
+
+        // Создаем roomId на основе пользователей (алфавитный порядок для консистентности)
+        String roomId = generatePrivateRoomId(senderUsername, recipientUsername);
+
+        ChatMessage message = ChatMessage.builder()
+            .sender(sender)
+            .recipient(recipient)
+            .content(request.getContent())
+            .roomId(roomId)
+            .type(messageType)
+            .build();
+
+        ChatMessage saved = messageRepository.save(message);
+        log.info("Приватное сообщение {} сохранено от {} к {}", 
+            saved.getId(), senderUsername, recipientUsername);
+
+        return ChatMessageResponse.fromEntity(saved);
+    }
+
+    /**
+     * Получение истории приватных сообщений между двумя пользователями.
+     * 
+     * @param username1 первый пользователь
+     * @param username2 второй пользователь
+     * @param limit максимальное количество сообщений
+     * @return список сообщений в хронологическом порядке
+     */
+    @Transactional(readOnly = true)
+    public List<ChatMessageResponse> getPrivateMessageHistory(
+            String username1, 
+            String username2, 
+            int limit) {
+        
+        log.debug("Загрузка приватной истории между {} и {} (limit={})", 
+            username1, username2, limit);
+
+        User user1 = userService.findByUsername(username1)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username1));
+        User user2 = userService.findByUsername(username2)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username2));
+
+        Pageable pageable = PageRequest.of(0, limit > 0 ? limit : DEFAULT_HISTORY_SIZE);
+        List<ChatMessage> messages = messageRepository.findLatestPrivateMessages(user1, user2, pageable);
+
+        // Переворачиваем список, чтобы старые сообщения были первыми
+        Collections.reverse(messages);
+
+        return messages.stream()
+            .map(ChatMessageResponse::fromEntity)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Генерация уникального roomId для приватного чата.
+     * Использует алфавитную сортировку имен для консистентности.
+     * 
+     * @param username1 первый пользователь
+     * @param username2 второй пользователь
+     * @return roomId в формате "private:user1:user2"
+     */
+    public String generatePrivateRoomId(String username1, String username2) {
+        String first = username1.compareTo(username2) < 0 ? username1 : username2;
+        String second = username1.compareTo(username2) < 0 ? username2 : username1;
+        return "private:" + first + ":" + second;
+    }
 }

@@ -16,9 +16,15 @@ public class ChatMessageRequest {
      * Идентификатор комнаты, в которую отправляется сообщение.
      * По умолчанию "public".
      */
-    @NotBlank(message = "Room ID обязателен")
     @Size(max = 100, message = "Room ID не должен превышать 100 символов")
     private String roomId = "public";
+
+    /**
+     * Username получателя для приватных сообщений.
+     * Если указан, сообщение считается приватным.
+     */
+    @Size(max = 50, message = "Username получателя не должен превышать 50 символов")
+    private String recipientUsername;
 
     /**
      * Текстовое содержимое сообщения.
@@ -36,8 +42,9 @@ public class ChatMessageRequest {
     // Конструкторы
     public ChatMessageRequest() {}
 
-    public ChatMessageRequest(String roomId, String content, String type) {
+    public ChatMessageRequest(String roomId, String recipientUsername, String content, String type) {
         this.roomId = roomId;
+        this.recipientUsername = recipientUsername;
         this.content = content;
         this.type = type;
     }
@@ -45,6 +52,9 @@ public class ChatMessageRequest {
     // Геттеры и сеттеры
     public String getRoomId() { return roomId; }
     public void setRoomId(String roomId) { this.roomId = roomId; }
+
+    public String getRecipientUsername() { return recipientUsername; }
+    public void setRecipientUsername(String recipientUsername) { this.recipientUsername = recipientUsername; }
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
@@ -57,15 +67,17 @@ public class ChatMessageRequest {
 
     public static class Builder {
         private String roomId = "public";
+        private String recipientUsername;
         private String content;
         private String type;
 
         public Builder roomId(String roomId) { this.roomId = roomId; return this; }
+        public Builder recipientUsername(String recipientUsername) { this.recipientUsername = recipientUsername; return this; }
         public Builder content(String content) { this.content = content; return this; }
         public Builder type(String type) { this.type = type; return this; }
 
         public ChatMessageRequest build() {
-            return new ChatMessageRequest(roomId, content, type);
+            return new ChatMessageRequest(roomId, recipientUsername, content, type);
         }
     }
 }

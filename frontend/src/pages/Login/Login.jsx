@@ -97,9 +97,9 @@ function Login() {
         <div className="demo-accounts">
           <p className="demo-title">Demo Accounts:</p>
           <div className="demo-list">
-            <code>alice / password</code>
-            <code>bob / password</code>
-            <code>admin / admin</code>
+            <code>misha / misha123</code>
+            <code>dima / dima123</code>
+            <code>sasha / sasha123</code>
           </div>
         </div>
       </div>

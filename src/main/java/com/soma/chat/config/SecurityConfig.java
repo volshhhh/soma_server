@@ -1,18 +1,11 @@
 package com.soma.chat.config;
 
-import com.soma.chat.model.entity.User;
-import com.soma.chat.repository.UserRepository;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -107,67 +100,6 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /**
-     * In-memory пользователи для демонстрации.
-     * 
-     * ВНИМАНИЕ: Только для разработки!
-     * В продакшене необходимо реализовать UserDetailsService
-     * с загрузкой пользователей из базы данных.
-     */
-    @Bean
-    public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
-        UserDetails alice = org.springframework.security.core.userdetails.User.builder()
-            .username("alice")
-            .password(passwordEncoder.encode("password"))
-            .roles("USER")
-            .build();
-
-        UserDetails bob = org.springframework.security.core.userdetails.User.builder()
-            .username("bob")
-            .password(passwordEncoder.encode("password"))
-            .roles("USER")
-            .build();
-
-        UserDetails admin = org.springframework.security.core.userdetails.User.builder()
-            .username("admin")
-            .password(passwordEncoder.encode("admin"))
-            .roles("USER", "ADMIN")
-            .build();
-
-        return new InMemoryUserDetailsManager(alice, bob, admin);
-    }
-
-    /**
-     * Инициализация тестовых пользователей в базе данных.
-     * Создает записи User для связи с сообщениями чата.
-     */
-    @Bean
-    public CommandLineRunner initUsers(UserRepository userRepository) {
-        return args -> {
-            // Создаем пользователей в БД, если их еще нет
-            if (userRepository.findByUsername("alice").isEmpty()) {
-                User alice = new User();
-                alice.setUsername("alice");
-                alice.setDisplayName("Алиса");
-                alice.setEmail("alice@example.com");
-                userRepository.save(alice);
-            }
-
-            if (userRepository.findByUsername("bob").isEmpty()) {
-                User bob = new User();
-                bob.setUsername("bob");
-                bob.setDisplayName("Боб");
-                bob.setEmail("bob@example.com");
-                userRepository.save(bob);
-            }
-
-            if (userRepository.findByUsername("admin").isEmpty()) {
-                User admin = new User();
-                admin.setUsername("admin");
-                admin.setDisplayName("Администратор");
-                admin.setEmail("admin@example.com");
-                userRepository.save(admin);
-            }
-        };
-    }
+    // UserDetailsService is now provided by DatabaseUserDetailsService
+    // Users are loaded from the database instead of in-memory
 }

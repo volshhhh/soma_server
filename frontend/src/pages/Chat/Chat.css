@@ -39,7 +39,7 @@
 }
 
 .chat-sidebar {
-  width: 260px;
+  width: 280px;
   background-color: var(--dark-surface);
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -100,6 +100,70 @@
 
 .status-dot.disconnected {
   background-color: var(--error-red);
+}
+
+/* Recipient avatar and info in chat header */
+.recipient-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5865f2 0%, #7289da 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.recipient-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recipient-info h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.recipient-username {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* No chat selected state */
+.no-chat-selected {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 2rem;
+}
+
+.no-chat-icon {
+  font-size: 4rem;
+  opacity: 0.5;
+}
+
+.no-chat-selected h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.no-chat-selected p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  max-width: 300px;
+  margin: 0;
 }
 
 @media (max-width: 768px) {

@@ -161,4 +161,36 @@ public class ChatRestController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    /**
+     * Получение истории приватных сообщений с пользователем.
+     * 
+     * GET /api/chat/private/{username}/messages
+     * 
+     * @param username username собеседника
+     * @param limit максимальное количество сообщений (по умолчанию 50)
+     * @param principal текущий авторизованный пользователь
+     * @return список приватных сообщений
+     */
+    @GetMapping("/private/{username}/messages")
+    public ResponseEntity<List<ChatMessageResponse>> getPrivateMessageHistory(
+            @PathVariable String username,
+            @RequestParam(defaultValue = "50") int limit,
+            java.security.Principal principal) {
+        
+        if (principal == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        String currentUser = principal.getName();
+        log.debug("REST: Запрос приватной истории между {} и {}", currentUser, username);
+        
+        try {
+            List<ChatMessageResponse> messages = chatService.getPrivateMessageHistory(
+                currentUser, username, limit);
+            return ResponseEntity.ok(messages);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
 }

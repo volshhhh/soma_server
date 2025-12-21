@@ -24,7 +24,11 @@ public class ChatEventDto {
         /** Пользователь печатает */
         USER_TYPING,
         /** Обновление списка онлайн пользователей */
-        ONLINE_USERS_UPDATE
+        ONLINE_USERS_UPDATE,
+        /** Пользователь стал онлайн */
+        USER_ONLINE,
+        /** Пользователь ушел оффлайн */
+        USER_OFFLINE
     }
 
     // Конструкторы

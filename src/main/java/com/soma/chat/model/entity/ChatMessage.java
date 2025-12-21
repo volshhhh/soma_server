@@ -17,7 +17,8 @@ import java.time.LocalDateTime;
 @Table(name = "chat_messages", indexes = {
     @Index(name = "idx_message_room", columnList = "room_id"),
     @Index(name = "idx_message_created", columnList = "created_at"),
-    @Index(name = "idx_message_sender", columnList = "sender_id")
+    @Index(name = "idx_message_sender", columnList = "sender_id"),
+    @Index(name = "idx_message_recipient", columnList = "recipient_id")
 })
 public class ChatMessage {
 
@@ -35,6 +36,14 @@ public class ChatMessage {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sender_id", nullable = false)
     private User sender;
+
+    /**
+     * Получатель сообщения (для приватных чатов).
+     * ManyToOne связь с User.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recipient_id")
+    private User recipient;
 
     /**
      * Текстовое содержимое сообщения.
@@ -89,10 +98,11 @@ public class ChatMessage {
     // Конструкторы
     public ChatMessage() {}
 
-    public ChatMessage(Long id, User sender, String content, String roomId, 
+    public ChatMessage(Long id, User sender, User recipient, String content, String roomId, 
                        MessageType type, LocalDateTime createdAt) {
         this.id = id;
         this.sender = sender;
+        this.recipient = recipient;
         this.content = content;
         this.roomId = roomId;
         this.type = type;
@@ -105,6 +115,9 @@ public class ChatMessage {
 
     public User getSender() { return sender; }
     public void setSender(User sender) { this.sender = sender; }
+
+    public User getRecipient() { return recipient; }
+    public void setRecipient(User recipient) { this.recipient = recipient; }
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
@@ -124,6 +137,7 @@ public class ChatMessage {
     public static class Builder {
         private Long id;
         private User sender;
+        private User recipient;
         private String content;
         private String roomId = "public";
         private MessageType type = MessageType.TEXT;
@@ -131,13 +145,14 @@ public class ChatMessage {
 
         public Builder id(Long id) { this.id = id; return this; }
         public Builder sender(User sender) { this.sender = sender; return this; }
+        public Builder recipient(User recipient) { this.recipient = recipient; return this; }
         public Builder content(String content) { this.content = content; return this; }
         public Builder roomId(String roomId) { this.roomId = roomId; return this; }
         public Builder type(MessageType type) { this.type = type; return this; }
         public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
 
         public ChatMessage build() {
-            return new ChatMessage(id, sender, content, roomId, type, createdAt);
+            return new ChatMessage(id, sender, recipient, content, roomId, type, createdAt);
         }
     }
 }

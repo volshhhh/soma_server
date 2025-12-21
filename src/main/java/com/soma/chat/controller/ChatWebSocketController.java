@@ -55,12 +55,17 @@ public class ChatWebSocketController {
      * @return сообщение для рассылки подписчикам
      */
     @MessageMapping("/chat.send")
-    @SendTo("/topic/public")
     public ChatMessageResponse sendPublicMessage(
             @Payload ChatMessageRequest request,
             Principal principal) {
         
         String username = getUsernameFromPrincipal(principal);
+        
+        // Если указан получатель, это приватное сообщение
+        if (request.getRecipientUsername() != null && !request.getRecipientUsername().isBlank()) {
+            return sendPrivateMessage(request, principal);
+        }
+        
         log.info("Получено сообщение от {} в публичный чат", username);
 
         // Если roomId не указан, используем "public"
@@ -68,7 +73,87 @@ public class ChatWebSocketController {
             request.setRoomId("public");
         }
 
-        return chatService.createMessage(request, username);
+        ChatMessageResponse response = chatService.createMessage(request, username);
+        messagingTemplate.convertAndSend("/topic/public", response);
+        return response;
+    }
+
+    /**
+     * Обработка приватного сообщения между двумя пользователями.
+     * 
+     * Клиент отправляет на: /app/chat.private
+     * Результат доставляется обоим пользователям на: /user/queue/private
+     * 
+     * @param request тело сообщения с recipientUsername
+     * @param principal информация об аутентифицированном пользователе
+     * @return сообщение для доставки получателю
+     */
+    @MessageMapping("/chat.private")
+    public ChatMessageResponse sendPrivateMessage(
+            @Payload ChatMessageRequest request,
+            Principal principal) {
+        
+        String senderUsername = getUsernameFromPrincipal(principal);
+        String recipientUsername = request.getRecipientUsername();
+        
+        log.info("Приватное сообщение от {} к {}", senderUsername, recipientUsername);
+
+        if (recipientUsername == null || recipientUsername.isBlank()) {
+            throw new IllegalArgumentException("Recipient username is required for private messages");
+        }
+
+        ChatMessageResponse response = chatService.createPrivateMessage(
+            request, senderUsername, recipientUsername);
+
+        // Отправляем сообщение получателю
+        messagingTemplate.convertAndSendToUser(
+            recipientUsername, 
+            "/queue/private", 
+            response
+        );
+
+        // Также отправляем копию отправителю (для синхронизации UI)
+        messagingTemplate.convertAndSendToUser(
+            senderUsername, 
+            "/queue/private", 
+            response
+        );
+
+        return response;
+    }
+
+    /**
+     * Запрос истории приватных сообщений через WebSocket.
+     * 
+     * Клиент отправляет на: /app/chat.private.history
+     * Результат отправляется только запросившему пользователю на: /queue/private.history
+     * 
+     * @param request данные с recipientUsername
+     * @param principal информация об аутентифицированном пользователе
+     */
+    @MessageMapping("/chat.private.history")
+    public void getPrivateHistory(
+            @Payload ChatMessageRequest request,
+            Principal principal) {
+        
+        String username = getUsernameFromPrincipal(principal);
+        String recipientUsername = request.getRecipientUsername();
+        
+        log.debug("Запрос приватной истории между {} и {}", username, recipientUsername);
+
+        if (recipientUsername == null || recipientUsername.isBlank()) {
+            return;
+        }
+
+        List<ChatMessageResponse> history = chatService.getPrivateMessageHistory(
+            username, recipientUsername, 50);
+
+        // Отправляем историю только запросившему пользователю
+        messagingTemplate.convertAndSendToUser(
+            username, 
+            "/queue/private.history", 
+            history
+        );
     }
 
     /**
@@ -128,6 +213,9 @@ public class ChatWebSocketController {
 
         // Устанавливаем статус онлайн
         userService.setOnlineStatus(username, true);
+
+        // Broadcast online status to all clients
+        broadcastUserStatusUpdate(username, true);
 
         // Создаем системное сообщение
         String roomId = request != null && request.getRoomId() != null 
@@ -219,5 +307,26 @@ public class ChatWebSocketController {
             return "anonymous";
         }
         return principal.getName();
+    }
+
+    /**
+     * Broadcast user online/offline status to all connected clients.
+     * This allows real-time updates of the user list.
+     */
+    private void broadcastUserStatusUpdate(String username, boolean online) {
+        UserDto userDto = userService.findByUsername(username)
+            .map(UserDto::fromEntity)
+            .orElse(null);
+
+        if (userDto != null) {
+            ChatEventDto statusEvent = ChatEventDto.builder()
+                .type(online ? ChatEventDto.EventType.USER_ONLINE : ChatEventDto.EventType.USER_OFFLINE)
+                .user(userDto)
+                .message(username + (online ? " is now online" : " went offline"))
+                .build();
+
+            messagingTemplate.convertAndSend("/topic/users.status", statusEvent);
+            log.info("Broadcasted status update: {} is {}", username, online ? "online" : "offline");
+        }
     }
 }

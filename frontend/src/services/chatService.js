@@ -114,6 +114,25 @@ class ChatService {
     }
   }
 
+  /**
+   * Subscribe to user online/offline status updates
+   */
+  subscribeToUserStatus(onStatusUpdate) {
+    if (!this.client || !this.isConnected) {
+      console.error('Not connected to WebSocket')
+      return null
+    }
+
+    const statusSub = this.client.subscribe('/topic/users.status', (message) => {
+      const data = JSON.parse(message.body)
+      console.log('[ChatService] User status update:', data)
+      if (onStatusUpdate) onStatusUpdate(data)
+    })
+
+    this.subscriptions.set('userStatus', { messageSub: statusSub })
+    return 'userStatus'
+  }
+
   sendMessage(content, roomId = null) {
     if (!this.client || !this.isConnected) {
       console.error('Not connected to WebSocket')
@@ -128,6 +147,81 @@ class ChatService {
     })
 
     return true
+  }
+
+  /**
+   * Send a private message to a specific user
+   */
+  sendPrivateMessage(content, recipientUsername) {
+    if (!this.client || !this.isConnected) {
+      console.error('Not connected to WebSocket')
+      return false
+    }
+
+    this.client.publish({
+      destination: '/app/chat.private',
+      body: JSON.stringify({ 
+        content, 
+        recipientUsername 
+      }),
+    })
+
+    return true
+  }
+
+  /**
+   * Subscribe to private messages for the current user
+   */
+  subscribeToPrivateMessages(onMessage) {
+    if (!this.client || !this.isConnected) {
+      console.error('Not connected to WebSocket')
+      return null
+    }
+
+    // Subscribe to private queue for this user
+    const privateSub = this.client.subscribe('/user/queue/private', (message) => {
+      const data = JSON.parse(message.body)
+      if (onMessage) onMessage(data)
+      this.notifyMessageHandlers(data)
+    })
+
+    this.subscriptions.set('private', { messageSub: privateSub })
+    return 'private'
+  }
+
+  /**
+   * Request private message history from the server
+   */
+  requestPrivateHistory(recipientUsername) {
+    if (!this.client || !this.isConnected) {
+      console.error('Not connected to WebSocket')
+      return false
+    }
+
+    this.client.publish({
+      destination: '/app/chat.private.history',
+      body: JSON.stringify({ recipientUsername }),
+    })
+
+    return true
+  }
+
+  /**
+   * Subscribe to private history response
+   */
+  subscribeToPrivateHistory(onHistory) {
+    if (!this.client || !this.isConnected) {
+      console.error('Not connected to WebSocket')
+      return null
+    }
+
+    const historySub = this.client.subscribe('/user/queue/private.history', (message) => {
+      const data = JSON.parse(message.body)
+      if (onHistory) onHistory(data)
+    })
+
+    this.subscriptions.set('privateHistory', { messageSub: historySub })
+    return 'privateHistory'
   }
 
   joinRoom(roomId = null) {
@@ -165,6 +259,58 @@ class ChatService {
       return await response.json()
     } catch (error) {
       console.error('Error fetching message history:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get private message history with a specific user via REST API
+   */
+  async getPrivateMessageHistory(recipientUsername, limit = 50) {
+    const auth = localStorage.getItem('soma_auth')
+    const url = `/api/chat/private/${recipientUsername}/messages?limit=${limit}`
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Authorization: auth ? `Basic ${auth}` : '',
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch private message history')
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching private message history:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get all users from the server
+   */
+  async getAllUsers() {
+    const auth = localStorage.getItem('soma_auth')
+    const url = '/api/chat/users'
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Authorization: auth ? `Basic ${auth}` : '',
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch users')
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching users:', error)
       return []
     }
   }

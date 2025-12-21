@@ -16,6 +16,7 @@ public class ChatMessageResponse {
     private Long id;
     private String roomId;
     private SenderInfo sender;
+    private SenderInfo recipient;
     private String content;
     private String type;
     private LocalDateTime createdAt;
@@ -23,11 +24,12 @@ public class ChatMessageResponse {
     // Конструкторы
     public ChatMessageResponse() {}
 
-    public ChatMessageResponse(Long id, String roomId, SenderInfo sender, 
+    public ChatMessageResponse(Long id, String roomId, SenderInfo sender, SenderInfo recipient,
                                String content, String type, LocalDateTime createdAt) {
         this.id = id;
         this.roomId = roomId;
         this.sender = sender;
+        this.recipient = recipient;
         this.content = content;
         this.type = type;
         this.createdAt = createdAt;
@@ -42,6 +44,9 @@ public class ChatMessageResponse {
 
     public SenderInfo getSender() { return sender; }
     public void setSender(SenderInfo sender) { this.sender = sender; }
+
+    public SenderInfo getRecipient() { return recipient; }
+    public void setRecipient(SenderInfo recipient) { this.recipient = recipient; }
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
@@ -102,6 +107,7 @@ public class ChatMessageResponse {
         private Long id;
         private String roomId;
         private SenderInfo sender;
+        private SenderInfo recipient;
         private String content;
         private String type;
         private LocalDateTime createdAt;
@@ -109,12 +115,13 @@ public class ChatMessageResponse {
         public Builder id(Long id) { this.id = id; return this; }
         public Builder roomId(String roomId) { this.roomId = roomId; return this; }
         public Builder sender(SenderInfo sender) { this.sender = sender; return this; }
+        public Builder recipient(SenderInfo recipient) { this.recipient = recipient; return this; }
         public Builder content(String content) { this.content = content; return this; }
         public Builder type(String type) { this.type = type; return this; }
         public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
 
         public ChatMessageResponse build() {
-            return new ChatMessageResponse(id, roomId, sender, content, type, createdAt);
+            return new ChatMessageResponse(id, roomId, sender, recipient, content, type, createdAt);
         }
     }
 
@@ -125,6 +132,15 @@ public class ChatMessageResponse {
      * @return DTO для передачи клиенту
      */
     public static ChatMessageResponse fromEntity(ChatMessage entity) {
+        SenderInfo recipientInfo = null;
+        if (entity.getRecipient() != null) {
+            recipientInfo = SenderInfo.builder()
+                .id(entity.getRecipient().getId())
+                .username(entity.getRecipient().getUsername())
+                .displayName(entity.getRecipient().getEffectiveDisplayName())
+                .build();
+        }
+        
         return ChatMessageResponse.builder()
             .id(entity.getId())
             .roomId(entity.getRoomId())
@@ -133,6 +149,7 @@ public class ChatMessageResponse {
                 .username(entity.getSender().getUsername())
                 .displayName(entity.getSender().getEffectiveDisplayName())
                 .build())
+            .recipient(recipientInfo)
             .content(entity.getContent())
             .type(entity.getType().name())
             .createdAt(entity.getCreatedAt())

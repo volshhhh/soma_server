@@ -1,32 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import chatService from '../../services/chatService'
 import MessageList from '../../components/Chat/MessageList'
 import MessageInput from '../../components/Chat/MessageInput'
-import RoomList from '../../components/Chat/RoomList'
-import OnlineUsers from '../../components/Chat/OnlineUsers'
+import UserList from '../../components/Chat/UserList'
 import './Chat.css'
 
-const ROOMS = [
-  { id: null, name: 'General', icon: '💬' },
-  { id: 'music', name: 'Music', icon: '🎵' },
-  { id: 'playlist', name: 'Playlist', icon: '📝' },
-  { id: 'support', name: 'Support', icon: '🛟' },
-]
-
 function Chat() {
-  const { roomId } = useParams()
   const navigate = useNavigate()
   const { user, isAuthenticated } = useAuth()
   const [messages, setMessages] = useState([])
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(true)
-  const [onlineUsers, setOnlineUsers] = useState([])
-  const [events, setEvents] = useState([])
+  const [allUsers, setAllUsers] = useState([])
+  const [selectedUser, setSelectedUser] = useState(null)
   const messagesEndRef = useRef(null)
-
-  const currentRoom = ROOMS.find((r) => r.id === (roomId || null)) || ROOMS[0]
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -46,6 +35,10 @@ function Chat() {
       try {
         await chatService.connect(user?.username)
         setIsConnected(true)
+        
+        // Load all users
+        const users = await chatService.getAllUsers()
+        setAllUsers(users)
       } catch (error) {
         console.error('Failed to connect:', error)
         setIsConnected(false)
@@ -72,63 +65,107 @@ function Chat() {
     }
   }, [isAuthenticated, user])
 
-  // Subscribe to room when connected or room changes
+  // Subscribe to user status updates when connected
   useEffect(() => {
     if (!isConnected) return
 
-    // Clear messages when changing rooms
-    setMessages([])
-    setEvents([])
+    // Subscribe to user status updates
+    const handleStatusUpdate = (event) => {
+      console.log('User status update:', event)
+      const { user: updatedUser, type } = event
+      if (!updatedUser) return
 
-    // Load message history
-    const loadHistory = async () => {
-      const history = await chatService.getMessageHistory(roomId, 50)
-      // Backend already returns messages in chronological order (oldest first)
-      setMessages(history)
-    }
-    loadHistory()
-
-    // Subscribe to room
-    const handleMessage = (message) => {
-      setMessages((prev) => [...prev, message])
-    }
-
-    const handleEvent = (event) => {
-      setEvents((prev) => [...prev.slice(-9), event])
-      
-      // Update online users based on events
-      if (event.type === 'JOIN') {
-        setOnlineUsers((prev) => {
-          if (!prev.find((u) => u.username === event.username)) {
-            return [...prev, { username: event.username, displayName: event.displayName }]
+      setAllUsers((prevUsers) => {
+        return prevUsers.map((u) => {
+          if (u.username === updatedUser.username) {
+            return {
+              ...u,
+              online: type === 'USER_ONLINE',
+            }
           }
-          return prev
+          return u
         })
-      } else if (event.type === 'LEAVE') {
-        setOnlineUsers((prev) => prev.filter((u) => u.username !== event.username))
+      })
+    }
+
+    chatService.subscribeToUserStatus(handleStatusUpdate)
+
+    // Also join the chat to trigger online status
+    chatService.joinRoom()
+
+    return () => {
+      const statusSub = chatService.subscriptions.get('userStatus')
+      if (statusSub?.messageSub) {
+        statusSub.messageSub.unsubscribe()
+        chatService.subscriptions.delete('userStatus')
+      }
+    }
+  }, [isConnected])
+
+  // Subscribe to private messages when connected
+  useEffect(() => {
+    if (!isConnected) return
+
+    // Subscribe to private messages
+    const handlePrivateMessage = (message) => {
+      // Only add message if it's for the currently selected conversation
+      const senderUsername = message.sender?.username
+      const recipientUsername = message.recipient?.username
+      const currentUsername = user?.username
+      
+      // Check if this message belongs to the current conversation
+      if (selectedUser) {
+        const isRelevant = 
+          (senderUsername === selectedUser.username && recipientUsername === currentUsername) ||
+          (senderUsername === currentUsername && recipientUsername === selectedUser.username)
+        
+        if (isRelevant) {
+          setMessages((prev) => [...prev, message])
+        }
       }
     }
 
-    chatService.subscribeToRoom(roomId, handleMessage, handleEvent)
-    chatService.joinRoom(roomId)
+    chatService.subscribeToPrivateMessages(handlePrivateMessage)
 
     return () => {
-      chatService.unsubscribeFromRoom(roomId)
+      // Clean up subscription
+      const privateSub = chatService.subscriptions.get('private')
+      if (privateSub?.messageSub) {
+        privateSub.messageSub.unsubscribe()
+        chatService.subscriptions.delete('private')
+      }
     }
-  }, [isConnected, roomId])
+  }, [isConnected, selectedUser, user])
+
+  // Load conversation history when selecting a user
+  useEffect(() => {
+    if (!isConnected || !selectedUser) return
+
+    const loadConversation = async () => {
+      setMessages([])
+      try {
+        const history = await chatService.getPrivateMessageHistory(
+          selectedUser.username,
+          50
+        )
+        setMessages(history)
+      } catch (error) {
+        console.error('Failed to load conversation:', error)
+      }
+    }
+
+    loadConversation()
+  }, [isConnected, selectedUser])
 
   const handleSendMessage = (content) => {
-    if (content.trim() && isConnected) {
-      chatService.sendMessage(content.trim(), roomId)
+    if (content.trim() && isConnected && selectedUser) {
+      chatService.sendPrivateMessage(content.trim(), selectedUser.username)
     }
   }
 
-  const handleRoomChange = (newRoomId) => {
-    if (newRoomId === null) {
-      navigate('/chat')
-    } else {
-      navigate(`/chat/${newRoomId}`)
-    }
+  const handleSelectUser = (userToChat) => {
+    setSelectedUser(userToChat)
+    setMessages([])
   }
 
   if (isConnecting) {
@@ -146,38 +183,65 @@ function Chat() {
     <div className="chat-page">
       <div className="chat-layout">
         <aside className="chat-sidebar">
-          <RoomList
-            rooms={ROOMS}
-            currentRoomId={roomId}
-            onRoomChange={handleRoomChange}
+          <UserList
+            users={allUsers}
+            currentUser={user}
+            selectedUser={selectedUser}
+            onSelectUser={handleSelectUser}
           />
-          <OnlineUsers users={onlineUsers} />
         </aside>
 
         <main className="chat-main">
-          <div className="chat-header">
-            <div className="room-info">
-              <span className="room-icon">{currentRoom.icon}</span>
-              <h2>{currentRoom.name}</h2>
-            </div>
-            <div className="connection-status">
-              <span className={`status-dot ${isConnected ? 'connected' : 'disconnected'}`}></span>
-              <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
-            </div>
-          </div>
+          {selectedUser ? (
+            <>
+              <div className="chat-header">
+                <div className="room-info">
+                  <div className="recipient-avatar">
+                    {(selectedUser.displayName || selectedUser.username)
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+                  <div className="recipient-info">
+                    <h2>{selectedUser.displayName || selectedUser.username}</h2>
+                    <span className="recipient-username">
+                      @{selectedUser.username}
+                    </span>
+                  </div>
+                </div>
+                <div className="connection-status">
+                  <span
+                    className={`status-dot ${
+                      isConnected ? 'connected' : 'disconnected'
+                    }`}
+                  ></span>
+                  <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+                </div>
+              </div>
 
-          <MessageList
-            messages={messages}
-            events={events}
-            currentUser={user}
-            messagesEndRef={messagesEndRef}
-          />
+              <MessageList
+                messages={messages}
+                events={[]}
+                currentUser={user}
+                messagesEndRef={messagesEndRef}
+              />
 
-          <MessageInput
-            onSend={handleSendMessage}
-            disabled={!isConnected}
-            placeholder={isConnected ? `Message #${currentRoom.name.toLowerCase()}` : 'Connecting...'}
-          />
+              <MessageInput
+                onSend={handleSendMessage}
+                disabled={!isConnected}
+                placeholder={
+                  isConnected
+                    ? `Message @${selectedUser.username}`
+                    : 'Connecting...'
+                }
+              />
+            </>
+          ) : (
+            <div className="no-chat-selected">
+              <div className="no-chat-icon">💬</div>
+              <h2>Select a user to start chatting</h2>
+              <p>Choose someone from the list on the left to begin a private conversation</p>
+            </div>
+          )}
         </main>
       </div>
     </div>

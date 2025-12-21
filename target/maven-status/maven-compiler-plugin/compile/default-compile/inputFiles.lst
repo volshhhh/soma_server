@@ -12,6 +12,8 @@
 /home/kercoza/kazaki/soma_server/src/main/java/com/soma/chat/dto/UserDto.java
 /home/kercoza/kazaki/soma_server/src/main/java/com/soma/chat/dto/ChatMessageRequest.java
 /home/kercoza/kazaki/soma_server/src/main/java/com/soma/chat/repository/ChatMessageRepository.java
+/home/kercoza/kazaki/soma_server/src/main/java/com/soma/chat/config/DataInitializer.java
+/home/kercoza/kazaki/soma_server/src/main/java/com/soma/chat/service/DatabaseUserDetailsService.java
 /home/kercoza/kazaki/soma_server/src/main/java/com/soma/chat/dto/ChatEventDto.java
 /home/kercoza/kazaki/soma_server/src/main/java/com/soma/chat/controller/ChatRestController.java
 /home/kercoza/kazaki/soma_server/src/main/java/com/soma/chat/repository/UserRepository.java

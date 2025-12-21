@@ -109,4 +109,41 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
         @Param("searchTerm") String searchTerm, 
         Pageable pageable
     );
+
+    /**
+     * Получение приватных сообщений между двумя пользователями.
+     * Возвращает сообщения где sender→recipient или recipient→sender.
+     * 
+     * @param user1 первый пользователь
+     * @param user2 второй пользователь
+     * @param pageable параметры пагинации
+     * @return страница сообщений между пользователями
+     */
+    @Query("SELECT m FROM ChatMessage m WHERE " +
+           "(m.sender = :user1 AND m.recipient = :user2) OR " +
+           "(m.sender = :user2 AND m.recipient = :user1) " +
+           "ORDER BY m.createdAt DESC")
+    Page<ChatMessage> findPrivateMessages(
+        @Param("user1") User user1, 
+        @Param("user2") User user2, 
+        Pageable pageable
+    );
+
+    /**
+     * Получение последних приватных сообщений между двумя пользователями.
+     * 
+     * @param user1 первый пользователь
+     * @param user2 второй пользователь
+     * @param pageable параметры пагинации (для ограничения количества)
+     * @return список сообщений
+     */
+    @Query("SELECT m FROM ChatMessage m WHERE " +
+           "(m.sender = :user1 AND m.recipient = :user2) OR " +
+           "(m.sender = :user2 AND m.recipient = :user1) " +
+           "ORDER BY m.createdAt DESC")
+    List<ChatMessage> findLatestPrivateMessages(
+        @Param("user1") User user1, 
+        @Param("user2") User user2, 
+        Pageable pageable
+    );
 }

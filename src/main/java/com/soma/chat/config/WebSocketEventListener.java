@@ -105,6 +105,30 @@ public class WebSocketEventListener {
             } else {
                 messagingTemplate.convertAndSend("/topic/room." + roomId, leaveEvent);
             }
+
+            // Broadcast user status update to all clients
+            broadcastUserStatusUpdate(username, false);
+        }
+    }
+
+    /**
+     * Broadcast user online/offline status to all connected clients.
+     * This allows real-time updates of the user list.
+     */
+    public void broadcastUserStatusUpdate(String username, boolean online) {
+        UserDto userDto = userService.findByUsername(username)
+            .map(UserDto::fromEntity)
+            .orElse(null);
+
+        if (userDto != null) {
+            ChatEventDto statusEvent = ChatEventDto.builder()
+                .type(online ? ChatEventDto.EventType.USER_ONLINE : ChatEventDto.EventType.USER_OFFLINE)
+                .user(userDto)
+                .message(username + (online ? " is now online" : " went offline"))
+                .build();
+
+            messagingTemplate.convertAndSend("/topic/users.status", statusEvent);
+            log.info("Broadcasted status update: {} is {}", username, online ? "online" : "offline");
         }
     }
 }
